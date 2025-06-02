@@ -1,37 +1,37 @@
 import matplotlib.pyplot as plt
-from typing import Any
+from pandas import DataFrame
 
 
-def plot_security_prices(all_records: dict[str, Any], security_type):
-    plt.style.use("seaborn")
-    n = len(all_records)
-    rows = int(n / 2)
-    cols = 2
-    if n == 1:
+def plot_security_prices(all_records: dict[str, DataFrame], security_type: str):
+    plt.style.use("seaborn-v0_8")
+    n_securities = len(all_records)
+    if n_securities == 1:
         rows = 1
         cols = 1
+    else:
+        rows = int(n_securities / 2)
+        cols = 2
 
-    fig, ax = plt.subplots(rows, cols)
-    i = 0
-    r = 0
     security_names = list(all_records.keys())
+    fig, ax = plt.subplots(rows, cols)
+    i, r = 0, 0
 
-    def _axis_plot_security_prices(records, col, name):
-        match n:
+    def _axis_plot_security_prices(records, col, security_name: str):
+        match n_securities:
             case 1:
-                ax.set_title(name)
+                ax.set_title(security_name)
                 records.plot(ax=ax, x="time", y=security_type)
             case 2:
-                ax[col].set_title(name)
+                ax[col].set_title(security_name)
                 records.plot(ax=ax[col], x="time", y=security_type)
             case _:
-                ax[r, col].set_title(name)
+                ax[r, col].set_title(security_name)
                 records.plot(ax=ax[r, col], x="time", y=security_type)
 
-    while i < n:
+    while i < n_securities:
         _axis_plot_security_prices(all_records[security_names[i]], 0, security_names[i])
         i = i + 1
-        if n > 1:
+        if n_securities > 1:
             _axis_plot_security_prices(
                 all_records[security_names[i]], 1, security_names[i]
             )
