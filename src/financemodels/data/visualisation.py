@@ -43,11 +43,11 @@ def plot_security_prices(all_records: dict[str, DataFrame], security_type: str):
 
 
 def plot_returns_for_different_periods(ticker, periodic_returns: list[tuple]):
-    plt.style.use("seaborn")
+    plt.style.use("seaborn-v0_8")
     fig, ax = plt.subplots(len(periodic_returns), 1)
 
     for index, t in enumerate(periodic_returns):
-        t[1].plot(ax=ax[index], x="time", y="Return")
+        t[1].plot(ax=ax[index], x="time", y="return")
         ax[index].set_title(ticker + " - " + t[0] + " Returns")
 
     fig.tight_layout()

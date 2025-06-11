@@ -3,11 +3,13 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "finance_models"
+name = "financemodels"
 version = "0.0.1"
 dependencies = [
     "pandas",
     "numpy",
     "matplotlib",
-    "yahoofinancials",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]

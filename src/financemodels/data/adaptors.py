@@ -1,23 +1,21 @@
-import pandas as pd
-import requests
 import sys
-import data.visualisation as vs
+import requests
+import numpy as np
+import pandas as pd
+import yfinance as yf
 from abc import ABC, ABCMeta, abstractmethod
 from enum import Enum
 from pandas import DataFrame
 from typing import Optional, Any
 from yahoofinancials import YahooFinancials
-
-
-class Frequency(Enum):
-    DAILY = "daily"
-    WEEKLY = "weekly"
-    MONTHLY = "monthly"
+from pathlib import Path
 
 
 class StockPriceDatasetAdapter(metaclass=ABCMeta):
 
     DEFAULT_TICKER = "AAPL"
+    DEFAULT_TRAINING_SET_DATE_RANGE = ("2020-01-01", "2021-12-31")
+    DEFAULT_VALIDATION_SET_DATE_RANGE = ("2013-07-01", "2013-08-31")
 
     @property
     @abstractmethod
@@ -53,12 +51,21 @@ class BaseStockPriceDatasetAdapter(StockPriceDatasetAdapter, ABC):
 
 class YahooFinancialsAdapter(BaseStockPriceDatasetAdapter):
 
+    class Frequency(Enum):
+        DAILY = "daily"
+        WEEKLY = "weekly"
+        MONTHLY = "monthly"
+
     def __init__(
         self,
         ticker: str = StockPriceDatasetAdapter.DEFAULT_TICKER,
         frequency: Frequency = Frequency.DAILY,
-        training_set_date_range: tuple[str, str] = ("2020-01-01", "2021-12-31"),
-        validation_set_date_range: tuple[str, str] = ("2013-07-01", "2013-08-31"),
+        training_set_date_range: tuple[
+            str, str
+        ] = StockPriceDatasetAdapter.DEFAULT_TRAINING_SET_DATE_RANGE,
+        validation_set_date_range: tuple[
+            str, str
+        ] = StockPriceDatasetAdapter.DEFAULT_VALIDATION_SET_DATE_RANGE,
     ):
         super().__init__(ticker=ticker)
         self._frequency = frequency
@@ -74,17 +81,15 @@ class YahooFinancialsAdapter(BaseStockPriceDatasetAdapter):
         stock_price_records = DataFrame(data=records["prices"])[
             ["formatted_date", "close"]
         ]
-        stock_price_records.rename(
-            columns={"formatted_date": "time", "close": "stock price"}, inplace=True
-        )
+        stock_price_records.columns = ["time", "stock price"]
         return stock_price_records
 
 
 class MarketStackAdapter(BaseStockPriceDatasetAdapter):
 
     _REQ_PARAMS = {"access_key": "85a88420013940af271a1003f8f42774", "limit": 500}
-    _EOD_API_URL = "https://api.marketstack.com/v1/eod"
-    _TICKER_API_URL = "https://api.marketstack.com/v1/tickers"
+    _EOD_API_URL = "https://api.marketstack.com/v2/eod"
+    _TICKER_API_URL = "https://api.marketstack.com/v2/tickers"
 
     class _PaginatedRecords:
         def __init__(self, api_url: str, req_params: dict[str, Any]) -> None:
@@ -116,7 +121,7 @@ class MarketStackAdapter(BaseStockPriceDatasetAdapter):
     def _connect_and_prepare(self, date_range: tuple[str, str]) -> DataFrame:
         def _extract_stock_price_details(
             stock_price_records: DataFrame, page: dict[str, Any]
-        ):
+        ) -> DataFrame:
             ticker_symbol = page["symbol"]
             stock_record_per_symbol = stock_price_records.get(ticker_symbol)
             if stock_record_per_symbol is None:
@@ -149,3 +154,43 @@ class MarketStackAdapter(BaseStockPriceDatasetAdapter):
         print(stock_price_records)
 
         return stock_price_records
+
+
+class YFinanceAdaptor(BaseStockPriceDatasetAdapter):
+
+    class Interval(Enum):
+        DAILY = "1d"
+        WEEKLY = "1wk"
+        MONTHLY = "1mo"
+
+    def __init__(
+        self,
+        ticker: str = StockPriceDatasetAdapter.DEFAULT_TICKER,
+        interval: str = Interval.DAILY.value,
+        training_set_date_range: tuple[
+            str, str
+        ] = StockPriceDatasetAdapter.DEFAULT_TRAINING_SET_DATE_RANGE,
+        validation_set_date_range: tuple[
+            str, str
+        ] = StockPriceDatasetAdapter.DEFAULT_VALIDATION_SET_DATE_RANGE,
+    ):
+        super().__init__(ticker=ticker)
+        self._interval = interval
+        self._yf = yf.Ticker(ticker)
+        self._training_set = self._connect_and_prepare(training_set_date_range)
+        self._validation_set = self._connect_and_prepare(validation_set_date_range)
+
+    def _connect_and_prepare(self, date_range: tuple[str, str]) -> DataFrame:
+        records = self._yf.history(
+            start=date_range[0], end=date_range[1], interval=self._interval
+        )
+        records.reset_index(inplace=True)
+        stock_price_records = DataFrame(data=records[["Date", "Close"]])
+        stock_price_records.rename(
+            columns={"Date": "time", "Close": "stock price"}, inplace=True
+        )
+        return stock_price_records
+
+
+if __name__ == "__main__":
+    adaptor = YFinanceAdaptor()
