@@ -7,7 +7,7 @@ from pandas import DataFrame
 from pathlib import Path
 from typing import Literal
 from torch import Tensor
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 
 class DeepLOBDataset(Dataset):
@@ -52,7 +52,6 @@ class DeepLOBDataset(Dataset):
             df = pd.concat((df, temp), axis=1)
 
         arr = df.to_numpy()
-        print(arr.shape)
 
         x_temp, y_temp = arr[:40, :].T, arr[-5:, :].T
         rows, cols = x_temp.shape
