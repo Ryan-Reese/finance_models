@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 import pandas as pd
-from abc import ABCMeta, abstractmethod
 from enum import Enum
 from pandas import DataFrame
 from pathlib import Path
@@ -24,12 +23,13 @@ class DeepLOBDataset(Dataset):
         time_horizon: int = 100,
         smoothing_factor: int = 4,
         num_classes: int = 3,
+        debug: bool = False,
     ) -> None:
         self._datatype = datatype
         self._time_horizon = time_horizon
         self._smoothing_factor = smoothing_factor
         self._num_classes = num_classes
-        self.x, self.y = self._load_and_prepare()
+        self.x, self.y = self._load_and_prepare(debug=debug)
 
     def __len__(self) -> int:
         return len(self.x)
@@ -37,25 +37,29 @@ class DeepLOBDataset(Dataset):
     def __getitem__(self, index) -> tuple:
         return self.x[index], self.y[index]
 
-    def _load_and_prepare(self) -> tuple[Tensor, Tensor]:
+    def _load_and_prepare(self, debug: bool = False) -> tuple[Tensor, Tensor]:
 
         df = DataFrame()
         for path in self.DeepLOBDatapaths[self._datatype].value:
-            print(path)
+
+            if debug:
+                print(path)
+
             with open(path) as fstream:
                 temp = pd.read_csv(fstream, sep="\s+", header=None)
-                print(temp.shape)
                 if self._datatype == "train":
                     temp = temp.iloc[:, : int(np.floor(temp.shape[1] * 0.8))]
                 elif self._datatype == "val":
                     temp = temp.iloc[:, int(np.floor(temp.shape[1] * 0.8)) :]
+                if debug:
+                    print(temp.shape)
             df = pd.concat((df, temp), axis=1)
 
         arr = df.to_numpy()
 
         x_temp, y_temp = arr[:40, :].T, arr[-5:, :].T
         rows, cols = x_temp.shape
-        y = y_temp[(self._time_horizon - 1) :, self._smoothing_factor] - 1
+        y = y_temp[(self._time_horizon - 1) :][:, self._smoothing_factor] - 1
         x = np.zeros(((rows - self._time_horizon + 1), self._time_horizon, cols))
         for i in range(self._time_horizon, rows + 1):
             x[i - self._time_horizon] = x_temp[(i - self._time_horizon) : i, :]
@@ -63,7 +67,8 @@ class DeepLOBDataset(Dataset):
         x, y = torch.from_numpy(x), torch.from_numpy(y)
         x = x.unsqueeze(1)
 
-        print(x.shape)
-        print(y.shape)
+        if debug:
+            print(x.shape)
+            print(y.shape)
 
         return x, y
